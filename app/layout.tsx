@@ -4,6 +4,7 @@ import "./globals.css";
 import { AppShell } from "@/components/app-shell";
 import { ThemeProvider } from "@/components/theme-provider";
 import { PageTransition } from "@/components/page-transition";
+import { Providers } from "@/components/providers";
 
 const manrope = Manrope({
   variable: "--font-manrope",
@@ -29,9 +30,11 @@ export default function RootLayout({
     <html lang="en">
       <body className={`${manrope.variable} ${fraunces.variable} antialiased`}>
         <ThemeProvider>
-          <AppShell>
-            <PageTransition>{children}</PageTransition>
-          </AppShell>
+          <Providers>
+            <AppShell>
+              <PageTransition>{children}</PageTransition>
+            </AppShell>
+          </Providers>
         </ThemeProvider>
       </body>
     </html>
