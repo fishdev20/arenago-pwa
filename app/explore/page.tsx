@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
+import { useAuthUser } from "@/lib/query/use-auth-user";
 import {
   ArrowUpRight,
   CalendarDays,
@@ -21,6 +22,7 @@ import {
   Search,
   Sparkles
 } from "lucide-react";
+import Link from "next/link";
 import * as React from "react";
 
 const sportPills = [
@@ -54,6 +56,23 @@ const quickEvents = [
 
 export default function ExplorePage() {
   const [scrollY, setScrollY] = React.useState(0);
+  const [justRegisteredName, setJustRegisteredName] = React.useState<
+    string | null
+  >(null);
+
+  const { data: user } = useAuthUser();
+
+  React.useEffect(() => {
+    try {
+      const stored = sessionStorage.getItem("arenago.just_registered");
+      if (!stored) return;
+      const payload = JSON.parse(stored) as { name?: string };
+      setJustRegisteredName(payload?.name ?? null);
+      sessionStorage.removeItem("arenago.just_registered");
+    } catch {
+      // ignore
+    }
+  }, []);
 
   React.useEffect(() => {
     let raf = 0;
@@ -72,6 +91,23 @@ export default function ExplorePage() {
   }, []);
 
   const fade = Math.min(scrollY / 200, 1);
+  const displayName =
+    justRegisteredName ||
+    user?.user_metadata?.full_name ||
+    user?.user_metadata?.name ||
+    user?.email ||
+    "";
+  const isAuthed = Boolean(user);
+  const headerTitle = justRegisteredName
+    ? `Welcome, ${displayName}`
+    : isAuthed
+      ? `Welcome back, ${displayName}`
+      : "Find your next court";
+  const headerSubtitle = justRegisteredName
+    ? "Your account is ready. Start exploring nearby courts."
+    : isAuthed
+      ? "Ready to book your next match?"
+      : "ArenaGo";
 
   return (
       <div className="flex flex-col">
@@ -89,24 +125,26 @@ export default function ExplorePage() {
               <div className="flex items-center justify-between">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.2em] text-primary-foreground/70">
-                ArenaGo
+                {headerSubtitle}
               </p>
-              <h1 className="text-2xl font-semibold">Find your next court</h1>
+              <h1 className="text-2xl font-semibold">{headerTitle}</h1>
             </div>
             <Button variant="secondary" size="sm" className="gap-2">
               <CalendarDays className="h-4 w-4" />
-              Tonight
+              Next slot
             </Button>
           </div>
 
-          <div className="mt-4 flex items-center gap-3">
-            <Button variant="secondary" size="sm">
-              Login
-            </Button>
-            <Button variant="default" size="sm">
-              Register
-            </Button>
-          </div>
+          {!isAuthed ? (
+            <div className="mt-4 flex items-center gap-3">
+              <Button asChild variant="secondary" size="sm">
+                <Link href="/login">Login</Link>
+              </Button>
+              <Button asChild variant="default" size="sm">
+                <Link href="/register">Register</Link>
+              </Button>
+            </div>
+          ) : null}
           </div>
         </header>
 

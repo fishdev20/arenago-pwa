@@ -9,10 +9,11 @@ import {
   Users,
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import * as React from "react";
-
 import { cn } from "@/lib/utils";
+import { useAuthUser } from "@/lib/query/use-auth-user";
+import { useProfileRole } from "@/lib/query/use-profile";
 
 const navItems = [
   { href: "/explore", label: "Explore", icon: Compass },
@@ -25,10 +26,26 @@ const navItems = [
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
+  const router = useRouter();
   const isMapPage = pathname === "/map";
   const isAuthPage =
-    pathname.startsWith("/login") || pathname.startsWith("/register");
+    pathname.startsWith("/login") ||
+    pathname.startsWith("/register") ||
+    pathname.startsWith("/auth");
+  const isRolePage = pathname.startsWith("/role-redirect");
   const lastPathRef = React.useRef<string | null>(null);
+
+  const { data: user } = useAuthUser();
+  const { data: profile } = useProfileRole(user?.id);
+
+  React.useEffect(() => {
+    if (!user?.id) return;
+    if (isAuthPage || isRolePage) return;
+    if (!profile?.role) return;
+    if (profile.role !== "user") {
+      router.replace("/role-redirect");
+    }
+  }, [user?.id, profile?.role, isAuthPage, isRolePage, router]);
 
   React.useEffect(() => {
     if (typeof window === "undefined") return;

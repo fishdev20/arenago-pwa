@@ -1,3 +1,5 @@
+"use client";
+
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,6 +14,9 @@ import {
 import { Separator } from "@/components/ui/separator";
 import { Bell, ChevronRight, Settings, ShieldCheck, Star } from "lucide-react";
 import Link from "next/link";
+import * as React from "react";
+import { useAuthUser } from "@/lib/query/use-auth-user";
+import { signOut } from "@/lib/api/auth";
 
 const settingsRows = [
   { label: "Notifications", icon: Bell },
@@ -21,29 +26,68 @@ const settingsRows = [
 ];
 
 export default function AccountPage() {
+  const { data: user, isLoading } = useAuthUser();
+
+  const displayName =
+    user?.user_metadata?.full_name ||
+    user?.user_metadata?.name ||
+    user?.email ||
+    "Guest";
+
+  const initials = React.useMemo(() => {
+    if (!displayName) return "AG";
+    return String(displayName)
+      .split(" ")
+      .map((part) => part[0])
+      .slice(0, 2)
+      .join("")
+      .toUpperCase();
+  }, [displayName]);
+
   return (
     <div className="flex flex-col gap-6 px-4 py-6">
       <Card className="overflow-hidden">
         <CardContent className="flex items-start gap-4 pt-6">
           <Link href="/profile" aria-label="Edit profile">
             <Avatar className="h-14 w-14">
-              <AvatarImage src="/avatar.png" alt="Ari Lee" />
-              <AvatarFallback>AL</AvatarFallback>
+              <AvatarImage
+                src={user?.user_metadata?.avatar_url ?? "/avatar.png"}
+                alt={displayName}
+              />
+              <AvatarFallback>{initials}</AvatarFallback>
             </Avatar>
           </Link>
           <div className="flex-1">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">
               Account
             </p>
-            <h1 className="text-2xl font-semibold">Ari Lee</h1>
+            <h1 className="text-2xl font-semibold">
+              {isLoading ? "Loading..." : displayName}
+            </h1>
             <div className="flex items-center gap-2">
-              <Badge>Pro member</Badge>
-              <span className="text-xs text-muted-foreground">Since 2023</span>
+              <Badge>{user ? "Member" : "Guest"}</Badge>
+              <span className="text-xs text-muted-foreground">
+                {user?.created_at
+                  ? `Since ${new Date(user.created_at).getFullYear()}`
+                  : "Sign in to sync"}
+              </span>
             </div>
+            {!user ? (
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button asChild size="sm" className="rounded-full">
+                  <Link href="/login">Login</Link>
+                </Button>
+                <Button asChild size="sm" variant="secondary" className="rounded-full">
+                  <Link href="/register">Register</Link>
+                </Button>
+              </div>
+            ) : null}
           </div>
-          <Button asChild variant="secondary" size="sm">
-            <Link href="/profile">Edit</Link>
-          </Button>
+          {user ? (
+            <Button asChild variant="secondary" size="sm">
+              <Link href="/profile">Edit</Link>
+            </Button>
+          ) : null}
         </CardContent>
       </Card>
 
@@ -116,9 +160,22 @@ export default function AccountPage() {
           })}
         </CardContent>
         <CardFooter>
-          <Button variant="secondary" className="w-full">
-            Sign out
-          </Button>
+          {user ? (
+            <Button
+              variant="secondary"
+              className="w-full"
+              onClick={async () => {
+                await signOut();
+                window.location.href = "/login";
+              }}
+            >
+              Sign out
+            </Button>
+          ) : (
+            <Button asChild variant="secondary" className="w-full">
+              <Link href="/login">Sign in</Link>
+            </Button>
+          )}
         </CardFooter>
       </Card>
     </div>
