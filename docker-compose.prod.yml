@@ -1,0 +1,47 @@
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: arenago-db-prod
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-arenago}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      - postgres_data_prod:/var/lib/postgresql/data
+      - ./docker/postgres/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: arenago-app-prod
+    restart: unless-stopped
+    depends_on:
+      - db
+    env_file:
+      - .env.production.docker
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-arenago}
+    ports:
+      - "${APP_PORT:-3000}:3000"
+
+  ingest:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: arenago-ingest-prod
+    depends_on:
+      - db
+    env_file:
+      - .env.production.docker
+    environment:
+      DATABASE_URL: postgres://${POSTGRES_USER:-postgres}:${POSTGRES_PASSWORD:-postgres}@db:5432/${POSTGRES_DB:-arenago}
+    command: ["node", "scripts/ingest-osm-centers.mjs"]
+    profiles: ["tools"]
+
+volumes:
+  postgres_data_prod:

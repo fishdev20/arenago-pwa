@@ -2,36 +2,14 @@
 
 import {
   Map,
+  MapClusterLayer,
   MapControls,
   MapMarker,
-  MapPopup,
   MarkerContent,
   type MapRef,
 } from "@/components/ui/map";
 import { cn } from "@/lib/utils";
-import { MapPinned } from "lucide-react";
 import * as React from "react";
-
-const mapPins = [
-  {
-    id: "center-1",
-    name: "ArenaGo Downtown",
-    sport: "Padel · 6 courts",
-    coords: [-122.399, 37.794],
-  },
-  {
-    id: "center-2",
-    name: "Bayside Sports Hub",
-    sport: "Pickleball · 10 courts",
-    coords: [-122.411, 37.781],
-  },
-  {
-    id: "center-3",
-    name: "Riverside Courts",
-    sport: "Tennis · 8 courts",
-    coords: [-122.423, 37.792],
-  },
-];
 
 const MAP_STYLE_LIGHT = "https://tiles.openfreemap.org/styles/liberty";
 const MAP_STYLE_DARK =
@@ -45,8 +23,29 @@ const DEFAULT_VIEWPORT = {
   bearing: 0,
 };
 
-const MapView = React.forwardRef<MapRef, { className?: string }>(
-  function MapView({ className }, ref) {
+type MapPin = {
+  id: string;
+  name: string;
+  sport?: string;
+  coords: [number, number];
+};
+
+type ViewportBounds = {
+  north: number;
+  south: number;
+  east: number;
+  west: number;
+};
+
+const MapView = React.forwardRef<
+  MapRef,
+  {
+    className?: string;
+    markers?: MapPin[];
+    onBoundsChange?: (bounds: ViewportBounds) => void;
+    onMarkerClick?: (id: string, coordinates: [number, number]) => void;
+  }
+>(function MapView({ className, markers, onBoundsChange, onMarkerClick }, ref) {
     const mapRef = React.useRef<MapRef>(null);
   const [userLocation, setUserLocation] = React.useState<{
     longitude: number;
@@ -54,20 +53,26 @@ const MapView = React.forwardRef<MapRef, { className?: string }>(
   } | null>(null);
   const hasCenteredRef = React.useRef(false);
   const [initialViewport, setInitialViewport] = React.useState(DEFAULT_VIEWPORT);
-  const [drawerOpen, setDrawerOpen] = React.useState(true);
-
-  const recentSearches = [
-    {
-      id: "r1",
-      name: "Sân Pickleball Quang Minh",
-      detail: "6810.6km | 1488 Duy Tân, Hòa Thuận Tây",
-    },
-    {
-      id: "r2",
-      name: "Sân Bóng Đá SeaMart Sport",
-      detail: "8108.5km | 24 Matti Pickerbellel - Cổng 1",
-    },
-  ];
+  const visiblePins = React.useMemo(() => markers ?? [], [markers]);
+  const clusterData = React.useMemo(
+    () =>
+      ({
+        type: "FeatureCollection",
+        features: visiblePins.map((pin) => ({
+          type: "Feature",
+          geometry: {
+            type: "Point",
+            coordinates: [pin.coords[0], pin.coords[1]],
+          },
+          properties: {
+            id: pin.id,
+            name: pin.name,
+            sport: pin.sport ?? "",
+          },
+        })),
+      }) as GeoJSON.FeatureCollection<GeoJSON.Point>,
+    [visiblePins]
+  );
 
   React.useEffect(() => {
     try {
@@ -167,6 +172,15 @@ const MapView = React.forwardRef<MapRef, { className?: string }>(
         bearing={initialViewport.bearing}
         onViewportChange={(viewport) => {
           localStorage.setItem(MAP_VIEW_KEY, JSON.stringify(viewport));
+          const bounds = mapRef.current?.getBounds();
+          if (bounds) {
+            onBoundsChange?.({
+              north: bounds.getNorth(),
+              south: bounds.getSouth(),
+              east: bounds.getEast(),
+              west: bounds.getWest(),
+            });
+          }
         }}
       >
         {userLocation ? (
@@ -183,27 +197,19 @@ const MapView = React.forwardRef<MapRef, { className?: string }>(
             </MarkerContent>
           </MapMarker>
         ) : null}
-        {mapPins.map((pin) => (
-          <MapMarker
-            key={pin.id}
-            longitude={pin.coords[0]}
-            latitude={pin.coords[1]}
-            anchor="bottom"
-          >
-            <MarkerContent>
-              <div className="flex items-center gap-2 rounded-full bg-background/90 px-3 py-2 text-xs font-semibold shadow-lg">
-                <MapPinned className="h-3.5 w-3.5 text-primary" />
-                {pin.name}
-              </div>
-            </MarkerContent>
-          </MapMarker>
-        ))}
-        <MapPopup longitude={-122.399} latitude={37.794}>
-          <div className="rounded-2xl border border-border/60 bg-background/95 p-3 text-xs shadow-lg">
-            <p className="font-semibold">ArenaGo Downtown</p>
-            <p className="text-muted-foreground">Open courts: 4</p>
-          </div>
-        </MapPopup>
+        <MapClusterLayer
+          data={clusterData}
+          clusterMaxZoom={15}
+          clusterRadius={48}
+          clusterThresholds={[20, 100]}
+          pointColor="#f97316"
+          clusterColors={["#22c55e", "#f59e0b", "#ef4444"]}
+          onPointClick={(feature, coordinates) => {
+            const id = String(feature.properties?.id ?? "");
+            if (!id) return;
+            onMarkerClick?.(id, coordinates);
+          }}
+        />
         <MapControls className="top-32 right-4" showZoom={false}
           showCompass
           showLocate/>

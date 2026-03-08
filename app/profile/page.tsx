@@ -19,7 +19,7 @@ import { queryKeys } from "@/lib/query/query-keys";
 import { upsertProfile } from "@/lib/api/profile";
 import { ChevronLeft } from "lucide-react";
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 type ProfileForm = {
   display_name: string;
@@ -47,27 +47,26 @@ const emptyProfile: ProfileForm = {
 
 export default function ProfilePage() {
   const queryClient = useQueryClient();
-  const [form, setForm] = useState<ProfileForm>(emptyProfile);
+  const [draft, setDraft] = useState<ProfileForm | null>(null);
   const [message, setMessage] = useState<string | null>(null);
 
   const { data: user } = useAuthUser();
   const { data: profile, isLoading } = useProfile(user?.id);
-  console.log(profile)
-
-  useEffect(() => {
-    if (!profile) return;
-    setForm({
-      display_name: profile.display_name ?? "",
-      photo_url: profile.photo_url ?? "",
-      bio: profile.bio ?? "",
-      address: profile.address ?? "",
-      city: profile.city ?? "",
-      state: profile.state ?? "",
-      country: profile.country ?? "",
-      postal_code: profile.postal_code ?? "",
-      phone: profile.phone ?? "",
-    });
-  }, [profile]);
+  const baseForm = useMemo(
+    () => ({
+      display_name: profile?.display_name ?? "",
+      photo_url: profile?.photo_url ?? "",
+      bio: profile?.bio ?? "",
+      address: profile?.address ?? "",
+      city: profile?.city ?? "",
+      state: profile?.state ?? "",
+      country: profile?.country ?? "",
+      postal_code: profile?.postal_code ?? "",
+      phone: profile?.phone ?? "",
+    }),
+    [profile]
+  );
+  const form = draft ?? baseForm ?? emptyProfile;
 
   const initials = useMemo(() => {
     const name =
@@ -98,6 +97,7 @@ export default function ProfilePage() {
     },
     onSuccess: () => {
       setMessage("Profile saved.");
+      setDraft(null);
       queryClient.invalidateQueries({ queryKey: queryKeys.profile(user?.id) });
     },
     onError: (err: Error) => {
@@ -137,7 +137,10 @@ export default function ProfilePage() {
               <Input
                 value={form.photo_url}
                 onChange={(event) =>
-                  setForm((prev) => ({ ...prev, photo_url: event.target.value }))
+                  setDraft((prev) => ({
+                    ...(prev ?? form),
+                    photo_url: event.target.value,
+                  }))
                 }
                 placeholder="https://..."
               />
@@ -150,8 +153,8 @@ export default function ProfilePage() {
               <Input
                 value={form.display_name}
                 onChange={(event) =>
-                  setForm((prev) => ({
-                    ...prev,
+                  setDraft((prev) => ({
+                    ...(prev ?? form),
                     display_name: event.target.value,
                   }))
                 }
@@ -169,7 +172,10 @@ export default function ProfilePage() {
             <textarea
               value={form.bio}
               onChange={(event) =>
-                setForm((prev) => ({ ...prev, bio: event.target.value }))
+                setDraft((prev) => ({
+                  ...(prev ?? form),
+                  bio: event.target.value,
+                }))
               }
               placeholder="Tell players a bit about you."
               className="min-h-[96px] w-full rounded-2xl border border-border bg-card px-4 py-3 text-sm shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/40"
@@ -182,7 +188,10 @@ export default function ProfilePage() {
               <Input
                 value={form.phone}
                 onChange={(event) =>
-                  setForm((prev) => ({ ...prev, phone: event.target.value }))
+                  setDraft((prev) => ({
+                    ...(prev ?? form),
+                    phone: event.target.value,
+                  }))
                 }
                 placeholder="+1 555 000 0000"
               />
@@ -192,7 +201,10 @@ export default function ProfilePage() {
               <Input
                 value={form.country}
                 onChange={(event) =>
-                  setForm((prev) => ({ ...prev, country: event.target.value }))
+                  setDraft((prev) => ({
+                    ...(prev ?? form),
+                    country: event.target.value,
+                  }))
                 }
                 placeholder="Country"
               />
@@ -205,7 +217,10 @@ export default function ProfilePage() {
               <Input
                 value={form.city}
                 onChange={(event) =>
-                  setForm((prev) => ({ ...prev, city: event.target.value }))
+                  setDraft((prev) => ({
+                    ...(prev ?? form),
+                    city: event.target.value,
+                  }))
                 }
                 placeholder="City"
               />
@@ -215,7 +230,10 @@ export default function ProfilePage() {
               <Input
                 value={form.state}
                 onChange={(event) =>
-                  setForm((prev) => ({ ...prev, state: event.target.value }))
+                  setDraft((prev) => ({
+                    ...(prev ?? form),
+                    state: event.target.value,
+                  }))
                 }
                 placeholder="State"
               />
@@ -228,7 +246,10 @@ export default function ProfilePage() {
               <Input
                 value={form.address}
                 onChange={(event) =>
-                  setForm((prev) => ({ ...prev, address: event.target.value }))
+                  setDraft((prev) => ({
+                    ...(prev ?? form),
+                    address: event.target.value,
+                  }))
                 }
                 placeholder="Street address"
               />
@@ -238,8 +259,8 @@ export default function ProfilePage() {
               <Input
                 value={form.postal_code}
                 onChange={(event) =>
-                  setForm((prev) => ({
-                    ...prev,
+                  setDraft((prev) => ({
+                    ...(prev ?? form),
                     postal_code: event.target.value,
                   }))
                 }

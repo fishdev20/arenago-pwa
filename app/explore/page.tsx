@@ -12,7 +12,17 @@ import {
 } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+  SheetTrigger,
+} from "@/components/ui/sheet";
 import { useAuthUser } from "@/lib/query/use-auth-user";
+import { useOSMCenters } from "@/lib/query/use-osm-centers";
+import { useSports } from "@/lib/query/use-sports";
 import {
   ArrowUpRight,
   CalendarDays,
@@ -20,6 +30,7 @@ import {
   Heart,
   MapPinned,
   Search,
+  SlidersHorizontal,
   Sparkles
 } from "lucide-react";
 import Link from "next/link";
@@ -34,21 +45,6 @@ const sportPills = [
   "Basketball",
 ];
 
-const featuredCenters = [
-  {
-    name: "ArenaGo Downtown",
-    distance: "1.2 km",
-    courts: "Padel · 6 courts",
-    nextSlot: "4:30 PM",
-  },
-  {
-    name: "Solaris Sport Club",
-    distance: "2.6 km",
-    courts: "Pickleball · 10 courts",
-    nextSlot: "5:10 PM",
-  },
-];
-
 const quickEvents = [
   { title: "Sunset Ladder", time: "Today · 6:00 PM", seats: "6 open" },
   { title: "Doubles Rush", time: "Tomorrow · 7:15 PM", seats: "2 open" },
@@ -56,11 +52,23 @@ const quickEvents = [
 
 export default function ExplorePage() {
   const [scrollY, setScrollY] = React.useState(0);
+  const [isFilterSheetOpen, setIsFilterSheetOpen] = React.useState(false);
   const [justRegisteredName, setJustRegisteredName] = React.useState<
     string | null
   >(null);
 
   const { data: user } = useAuthUser();
+  const { data: sportsData } = useSports();
+  const sportTypes = React.useMemo(
+    () => (sportsData ?? []).map((sport) => sport.slug),
+    [sportsData]
+  );
+  const { data: osmCenters } = useOSMCenters({
+    sportTypes,
+    viewport: null,
+    enabled: sportTypes.length > 0,
+  });
+
 
   React.useEffect(() => {
     try {
@@ -91,6 +99,7 @@ export default function ExplorePage() {
   }, []);
 
   const fade = Math.min(scrollY / 200, 1);
+  const showStickyFilterButton = fade >= 0.85;
   const displayName =
     justRegisteredName ||
     user?.user_metadata?.full_name ||
@@ -108,6 +117,13 @@ export default function ExplorePage() {
     : isAuthed
       ? "Ready to book your next match?"
       : "ArenaGo";
+  const featuredCenters =
+    (osmCenters ?? []).slice(0, 6).map((center, index) => ({
+      name: center.name,
+      distance: `${(1.2 + index * 0.8).toFixed(1)} km`,
+      courts: `${center.sports.join(", ")} · ${center.address}`,
+      nextSlot: ["4:30 PM", "5:10 PM", "6:00 PM", "7:20 PM"][index % 4],
+    }));
 
   return (
       <div className="flex flex-col">
@@ -163,6 +179,30 @@ export default function ExplorePage() {
                 className="pl-10"
               />
             </div>
+            {showStickyFilterButton ? (
+              <Sheet open={isFilterSheetOpen} onOpenChange={setIsFilterSheetOpen}>
+                <SheetTrigger asChild>
+                  <Button variant="secondary" className="h-11 w-11 p-3 rounded-full bg-card">
+                    <SlidersHorizontal />
+                  </Button>
+                </SheetTrigger>
+                <SheetContent side="right" className="w-[85vw] sm:max-w-sm">
+                  <SheetHeader>
+                    <SheetTitle>Filter sports</SheetTitle>
+                    <SheetDescription>
+                      Pick sports to narrow your explore feed.
+                    </SheetDescription>
+                  </SheetHeader>
+                  <div className="mt-6 flex flex-wrap gap-2">
+                    {sportPills.map((sport) => (
+                      <Badge key={sport} variant="outline">
+                        {sport}
+                      </Badge>
+                    ))}
+                  </div>
+                </SheetContent>
+              </Sheet>
+            ) : null}
             <Button variant={"secondary"} className="h-11 w-11 p-3 rounded-full bg-card">
               <Heart />
             </Button>
@@ -191,36 +231,44 @@ export default function ExplorePage() {
 
 
         <div className="grid gap-4">
-          {featuredCenters.map((center) => (
-            <Card key={center.name} className="overflow-hidden">
-              <CardHeader className="pb-2">
-                <div className="flex items-center justify-between">
-                  <CardTitle>{center.name}</CardTitle>
-                  <Badge className="gap-1" variant="outline">
-                    <MapPinned className="h-3.5 w-3.5" />
-                    {center.distance}
-                  </Badge>
-                </div>
-                <CardDescription>{center.courts}</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="flex items-center justify-between rounded-2xl bg-muted/60 px-4 py-3 text-sm font-semibold">
-                  <span>Next slot</span>
-                  <span className="text-primary">{center.nextSlot}</span>
-                </div>
+          {featuredCenters.length === 0 ? (
+            <Card>
+              <CardContent className="py-8 text-center text-sm text-muted-foreground">
+                No centers found for the selected sports and area.
               </CardContent>
-              <CardFooter className="justify-between">
-                <Button variant="secondary" size="sm" className="gap-2">
-                  <Sparkles className="h-4 w-4" />
-                  Instant match
-                </Button>
-                <Button size="sm" className="gap-2">
-                  Book now
-                  <ArrowUpRight className="h-4 w-4" />
-                </Button>
-              </CardFooter>
             </Card>
-          ))}
+          ) : (
+            featuredCenters.map((center) => (
+              <Card key={center.name} className="overflow-hidden">
+                <CardHeader className="pb-2">
+                  <div className="flex items-center justify-between">
+                    <CardTitle>{center.name}</CardTitle>
+                    <Badge className="gap-1" variant="outline">
+                      <MapPinned className="h-3.5 w-3.5" />
+                      {center.distance}
+                    </Badge>
+                  </div>
+                  <CardDescription>{center.courts}</CardDescription>
+                </CardHeader>
+                <CardContent>
+                  <div className="flex items-center justify-between rounded-2xl bg-muted/60 px-4 py-3 text-sm font-semibold">
+                    <span>Next slot</span>
+                    <span className="text-primary">{center.nextSlot}</span>
+                  </div>
+                </CardContent>
+                <CardFooter className="justify-between">
+                  <Button variant="secondary" size="sm" className="gap-2">
+                    <Sparkles className="h-4 w-4" />
+                    Instant match
+                  </Button>
+                  <Button size="sm" className="gap-2">
+                    Book now
+                    <ArrowUpRight className="h-4 w-4" />
+                  </Button>
+                </CardFooter>
+              </Card>
+            ))
+          )}
         </div>
       </section>
 
